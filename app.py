@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 from datetime import date
+from threading import Thread
 from flask import Flask
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
@@ -219,11 +220,11 @@ async def handle_callback(call: types.CallbackQuery):
 
 async def run_bot():
     """Запускает long polling бота"""
-    await bot.delete_webhook(drop_pending_updates=True)
+    await bot.delete_webhook(drop_pending_updates=True)  # сброс старых подключений
     init_db()
     await dp.start_polling(bot)
 
-# ========== FLASK ПРИЛОЖЕНИЕ ДЛЯ RENDER ==========
+# ========== FLASK ПРИЛОЖЕНИЕ ==========
 app = Flask(__name__)
 
 @app.route('/')
@@ -234,13 +235,15 @@ def index():
 def health():
     return "OK", 200
 
-# ========== ЗАПУСК ==========
-if __name__ == "__main__":
-    # Запускаем бота в фоновом asyncio-событии
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.create_task(run_bot())
-    
-    # Запускаем Flask-сервер на порту, который даёт Render
+# ========== ЗАПУСК (Flask в потоке, бот в основном цикле) ==========
+def run_flask():
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, use_reloader=False)
+
+if __name__ == "__main__":
+    # Запускаем Flask в отдельном потоке
+    flask_thread = Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+    
+    # Запускаем бота в основном асинхронном цикле
+    asyncio.run(run_bot())
