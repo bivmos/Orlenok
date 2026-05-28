@@ -219,6 +219,7 @@ async def handle_callback(call: types.CallbackQuery):
 
 async def run_bot():
     """Запускает long polling бота"""
+    await bot.delete_webhook(drop_pending_updates=True)
     init_db()
     await dp.start_polling(bot)
 
